@@ -3,120 +3,216 @@
 <head>
 <meta charset="utf-8">
 <title>Quran Overlay</title>
-
 <style>
-
-body{
-margin:0;
-background:#00FF00; /* chroma key hijau */
-font-family:sans-serif;
-color:white;
-overflow:hidden;
-}
-
-.box{
-position:absolute;
-bottom:40px;
-left:50%;
-transform:translate(-50%,40px);
-background:rgba(0,0,0,0.70);
-padding:25px 40px;
-border-radius:14px;
-text-align:center;
-max-width:75%;
-
-opacity:0;
-
-transition:
-opacity 0.8s cubic-bezier(.22,.61,.36,1),
-transform 0.8s cubic-bezier(.22,.61,.36,1);
-}
-
-.box.show{
-opacity:1;
-transform:translate(-50%,0);
-}
-
-.meta{
-color:gold;
-font-size:18px;
-}
-
-.ar{
-font-size:44px;
-margin-top:10px;
-line-height:1.7;
-}
-
-.tr{
-font-size:20px;
-margin-top:10px;
-color:#ddd;
-}
-
+body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:#fff;overflow:hidden}
+.box{position:absolute;bottom:26px;left:20px;right:20px;transform:translateY(40px);background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.6));padding:18px 28px;border-radius:14px;text-align:center;max-width:none;min-width:0;opacity:0;transition:opacity .45s ease,transform .45s ease;box-shadow:0 12px 36px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08)}
+.box.show{opacity:1;transform:translateY(0)}
+.meta{color:#facc15;font-size:20px;font-weight:700;letter-spacing:.4px}
+.ar{font-size:46px;line-height:1.7;margin-top:6px;font-family:'Amiri','Scheherazade New','Traditional Arabic',serif}
+.tr{font-size:18px;line-height:1.35;margin-top:8px;color:#f1f5f9}
+.progress{height:4px;background:rgba(255,255,255,.15);border-radius:99px;margin-top:14px;overflow:hidden}.bar{height:100%;width:0;background:#38bdf8;transition:width .2s linear}
 </style>
 </head>
-
 <body>
-
 <div class="box" id="box">
-<div class="meta" id="meta"></div>
-<div class="ar" id="arab"></div>
-<div class="tr" id="trans"></div>
+  <div class="meta" id="meta">Memuat...</div>
+  <div class="ar" id="arab"></div>
+  <div class="tr" id="trans"></div>
+  <div class="progress"><div class="bar" id="bar"></div></div>
 </div>
+<audio id="audio" preload="none"></audio>
 
 <script>
+const CHANNEL='quran-live-sync';
+const STORAGE_KEY='quran-live-state';
+const REMOTE_STATE_URL = getParam('state') || 'http://157.10.157.25:8787/state';
+const API_FROM_QUERY = getParam('api');
+const API_CANDIDATES = [
+  API_FROM_QUERY,
+  'https://equran.id/api/v2/surat',
+  'http://equran.id/api/v2/surat'
+].filter(Boolean);
+const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
+const box=document.getElementById('box');
+const bar=document.getElementById('bar');
+const audioEl=document.getElementById('audio');
 
-function getParam(name){
-let url = new URL(window.location.href)
-return url.searchParams.get(name)
+let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05'};
+let timer=null;let tick=null;
+const surahCache={};
+let lastSeq=0;
+let lastAppliedTime=0;
+let lastSource='';
+let poller=null;
+let remotePoller=null;
+let activeApiBase='';
+
+function getParam(name){return new URL(window.location.href).searchParams.get(name)}
+const qsSurah=Number(getParam('s')); const qsAyah=Number(getParam('a'));
+if(qsSurah>0) state.surah=qsSurah; if(qsAyah>0) state.ayah=qsAyah;
+
+async function getSurahData(surah){
+  if(surahCache[surah]) return surahCache[surah];
+  let lastErr=null;
+
+  for (const apiBase of API_CANDIDATES) {
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(()=>ctrl.abort(), 8000);
+      const res=await fetch(`${apiBase}/${surah}`, {signal: ctrl.signal});
+      clearTimeout(timeout);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json=await res.json();
+      if(json.code!==200||!json.data) throw new Error('Response tidak valid');
+
+      activeApiBase = apiBase;
+      surahCache[surah]=json.data;
+      return json.data;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  const e = new Error('Semua endpoint API gagal');
+  e.cause = lastErr;
+  throw e;
 }
 
-let surah = getParam("s") || 1
-let ayah = getParam("a") || 1
+async function nextAyahSafe(){
+  const cur=await getSurahData(state.surah);
+  if(state.ayah<cur.jumlahAyat){
+    state.ayah+=1;
+  }else if(cur.suratSelanjutnya?.nomor){
+    state.surah=cur.suratSelanjutnya.nomor;
+    state.ayah=1;
+  }
+  persistAndBroadcast();
+  await load();
+}
+
+function animateProgress(ms){
+  clearInterval(tick);bar.style.width='0%';
+  const total=Math.max(800,ms);
+  const start=Date.now();
+  tick=setInterval(()=>{bar.style.width=`${Math.min(100,((Date.now()-start)/total)*100)}%`},100);
+}
+
+function clearAuto(){clearInterval(timer);clearInterval(tick);bar.style.width='0%';audioEl.onended=null;}
+
+function syncAutoplay(){
+  clearAuto();
+  if(!state.autoplay) return;
+  if(state.autoplayMode==='audio'){
+    // dipicu per ayat setelah audio selesai
+    if(audioEl.src){
+      audioEl.play().catch(()=>{});
+      audioEl.onended=async ()=>{await nextAyahSafe();};
+    }
+  }else{
+    const ms=Math.max(2000,state.interval*1000);
+    animateProgress(ms);
+    timer=setInterval(async ()=>{await nextAyahSafe();animateProgress(ms);},ms);
+  }
+}
+
+function persistAndBroadcast(){state.t=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));if(bc) bc.postMessage(state)}
 
 async function load(){
+  box.classList.remove('show');
+  try{
+    const surah=await getSurahData(state.surah);
+    if(state.ayah > surah.jumlahAyat){
+      if(surah.suratSelanjutnya?.nomor){
+        state.surah = surah.suratSelanjutnya.nomor;
+        state.ayah = 1;
+        persistAndBroadcast();
+        return load();
+      }
+      state.ayah = surah.jumlahAyat;
+    }
 
-let box = document.getElementById("box")
+    const verse=surah.ayat.find(v=>v.nomorAyat===state.ayah);
+    if(!verse) throw new Error('Ayat tidak ditemukan');
 
-box.classList.remove("show")
+    document.getElementById('arab').textContent=verse.teksArab||'';
+    document.getElementById('trans').textContent=verse.teksIndonesia||'';
+    document.getElementById('meta').textContent=`QS ${surah.namaLatin} (${state.surah}) : ${verse.nomorAyat}${state.autoplay?` • Auto ${state.autoplayMode==='audio'?'Audio':'Timer'}`:''}`;
 
-setTimeout(async ()=>{
+    const audioUrl=verse.audio?.[state.reciter] || verse.audio?.['05'] || '';
+    if(audioUrl){audioEl.src=audioUrl;}
 
-let url =
-`https://api.quran.com/api/v4/verses/by_key/${surah}:${ayah}?translations=33&fields=text_uthmani`
-
-let res = await fetch(url)
-let data = await res.json()
-
-let verse = data.verse
-
-// arab
-document.getElementById("arab").innerHTML =
-verse.text_uthmani || ""
-
-// terjemahan
-document.getElementById("trans").innerHTML =
-verse.translations?.[0]?.text || ""
-
-// meta
-let key = verse.verse_key.split(":")
-
-document.getElementById("meta").innerHTML =
-`QS ${key[0]} : ${key[1]}`
-
-// animasi masuk
-requestAnimationFrame(()=>{
-box.classList.add("show")
-})
-
-},500)
-
+  }catch(err){
+    const errText = err?.cause?.message || err?.message || 'Unknown error';
+    document.getElementById('meta').textContent=`Gagal memuat QS ${state.surah}:${state.ayah}`;
+    document.getElementById('arab').textContent='';
+    document.getElementById('trans').textContent=`Koneksi/API gagal (${errText}). Coba internet server vMix, DNS, atau pakai ?api=http://equran.id/api/v2/surat`;
+  }
+  requestAnimationFrame(()=>box.classList.add('show'));
+  syncAutoplay();
 }
 
-load()
+function applyIncoming(next){
+  if(!next) return;
+  const seq = Number(next.seq) || 0;
+  const incomingTime = Number(next.t) || Date.now();
+  const incomingSource = next.source || 'unknown';
 
+  const isSameSource = incomingSource === lastSource;
+  if (isSameSource && seq && seq <= lastSeq && incomingTime <= lastAppliedTime) return;
+  if (!isSameSource && incomingTime < lastAppliedTime - 15000) return;
+
+  lastSource = incomingSource;
+  if (seq) lastSeq = seq;
+  lastAppliedTime = incomingTime;
+
+  state={
+    surah:Number(next.surah)||1,
+    ayah:Number(next.ayah)||1,
+    autoplay:Boolean(next.autoplay),
+    interval:Math.max(2,Number(next.interval)||8),
+    autoplayMode:next.autoplayMode==='audio'?'audio':'timer',
+    reciter:(next.reciter||'05').padStart(2,'0')
+  };
+  load();
+}
+
+if(bc) bc.onmessage=(e)=>applyIncoming(e.data);
+window.addEventListener('storage',(e)=>{if(e.key===STORAGE_KEY&&e.newValue)applyIncoming(JSON.parse(e.newValue));});
+
+
+async function pullRemoteState(){
+  if(!REMOTE_STATE_URL) return;
+  try{
+    const res = await fetch(REMOTE_STATE_URL,{cache:'no-store'});
+    if(!res.ok) return;
+    const data = await res.json();
+    const next = data?.state || data;
+    if(next && typeof next === 'object' && next.surah && next.ayah){
+      applyIncoming(next);
+    }
+  }catch{}
+}
+
+function startRemotePolling(){
+  if(remotePoller) clearInterval(remotePoller);
+  pullRemoteState();
+  remotePoller = setInterval(pullRemoteState, 1000);
+}
+
+function startPollingFallback(){
+  if(poller) clearInterval(poller);
+  poller = setInterval(()=>{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    try { applyIncoming(JSON.parse(raw)); } catch {}
+  }, 700);
+}
+
+const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+if(saved) applyIncoming(saved); else {persistAndBroadcast(); load();}
+startPollingFallback();
+startRemotePolling();
 </script>
-
 </body>
 </html>
