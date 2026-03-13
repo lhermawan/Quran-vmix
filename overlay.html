@@ -34,6 +34,8 @@ const audioEl=document.getElementById('audio');
 let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05'};
 let timer=null;let tick=null;
 const surahCache={};
+let lastSeq=0;
+let poller=null;
 
 function getParam(name){return new URL(window.location.href).searchParams.get(name)}
 const qsSurah=Number(getParam('s')); const qsAyah=Number(getParam('a'));
@@ -91,7 +93,17 @@ async function load(){
   box.classList.remove('show');
   try{
     const surah=await getSurahData(state.surah);
-    const verse=surah.ayat.find(v=>v.nomorAyat===state.ayah) || surah.ayat[0];
+    if(state.ayah > surah.jumlahAyat){
+      if(surah.suratSelanjutnya?.nomor){
+        state.surah = surah.suratSelanjutnya.nomor;
+        state.ayah = 1;
+        persistAndBroadcast();
+        return load();
+      }
+      state.ayah = surah.jumlahAyat;
+    }
+
+    const verse=surah.ayat.find(v=>v.nomorAyat===state.ayah);
     if(!verse) throw new Error('Ayat tidak ditemukan');
 
     document.getElementById('arab').textContent=verse.teksArab||'';
@@ -112,6 +124,10 @@ async function load(){
 
 function applyIncoming(next){
   if(!next) return;
+  const seq = Number(next.seq) || 0;
+  if(seq && seq <= lastSeq) return;
+  if(seq) lastSeq = seq;
+
   state={
     surah:Number(next.surah)||1,
     ayah:Number(next.ayah)||1,
@@ -126,8 +142,18 @@ function applyIncoming(next){
 if(bc) bc.onmessage=(e)=>applyIncoming(e.data);
 window.addEventListener('storage',(e)=>{if(e.key===STORAGE_KEY&&e.newValue)applyIncoming(JSON.parse(e.newValue));});
 
+function startPollingFallback(){
+  if(poller) clearInterval(poller);
+  poller = setInterval(()=>{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    try { applyIncoming(JSON.parse(raw)); } catch {}
+  }, 700);
+}
+
 const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
 if(saved) applyIncoming(saved); else {persistAndBroadcast(); load();}
+startPollingFallback();
 </script>
 </body>
 </html>

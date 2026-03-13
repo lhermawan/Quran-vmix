@@ -81,17 +81,20 @@ const CHANNEL='quran-live-sync';
 const STORAGE_KEY='quran-live-state';
 const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
 const statusEl=document.getElementById('status');
+let lastState=null;
 
 function getNum(id,fallback=1){const n=Number(document.getElementById(id).value);return Number.isFinite(n)&&n>0?n:fallback}
 
 function getState(){
+  const keepAutoplay = lastState ? Boolean(lastState.autoplay) : false;
   return {
     surah:Math.min(114,Math.max(1,getNum('surah',1))),
     ayah:Math.max(1,getNum('ayah',1)),
-    autoplay:false,
+    autoplay:keepAutoplay,
     interval:Math.max(2,getNum('interval',8)),
     autoplayMode:document.getElementById('autoplayMode').value,
     reciter:document.getElementById('reciter').value,
+    seq:(lastState?.seq||0)+1,
     t:Date.now()
   };
 }
@@ -99,6 +102,7 @@ function getState(){
 function setStatus(text){statusEl.textContent=text}
 
 function publish(state){
+  lastState = state;
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   if(bc) bc.postMessage(state);
   const extra=state.autoplay?` • Auto ${state.autoplayMode==='audio'?'Audio':'Timer '+state.interval+'s'}`:'';
@@ -116,6 +120,7 @@ window.addEventListener('keydown',(e)=>{if(e.code==='ArrowRight')nextAyah();if(e
 
 const initial=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
 if(initial){
+  lastState = initial;
   surah.value=initial.surah||1;ayah.value=initial.ayah||1;interval.value=initial.interval||8;
   autoplayMode.value=initial.autoplayMode||'timer';reciter.value=initial.reciter||'05';
   setStatus(`Loaded: QS ${initial.surah}:${initial.ayah}`);

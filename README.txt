@@ -24,6 +24,7 @@ SETUP IN VMIX
 Operator controls:
 - Change surah / ayah
 - Next / prev ayah (Arrow Left/Right)
+- Next otomatis valid ke nomorAyat berikutnya; jika akhir surat pindah ke surat selanjutnya
 - Jump to Juz
 - Auto play: mode Timer (detik) atau mode Audio selesai
 - Pilih qori (01-06 dari API equran)
