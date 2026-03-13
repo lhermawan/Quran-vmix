@@ -32,6 +32,7 @@ Operator controls:
 NOTES
 
 - overlay dan control sinkron realtime via localStorage + BroadcastChannel.
+- Untuk sinkron realtime paling stabil, buka control dan overlay dari host/domain yang sama (contoh sama-sama di mesin vMix: localhost/quran).
 - API source utama: https://equran.id/api/v2/surat/{nomor}
 - Bisa force verse dari URL:
   overlay.html?s=2&a=5

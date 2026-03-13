@@ -40,6 +40,8 @@ let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter
 let timer=null;let tick=null;
 const surahCache={};
 let lastSeq=0;
+let lastAppliedTime=0;
+let lastSource='';
 let poller=null;
 let activeApiBase='';
 
@@ -151,8 +153,16 @@ async function load(){
 function applyIncoming(next){
   if(!next) return;
   const seq = Number(next.seq) || 0;
-  if(seq && seq <= lastSeq) return;
-  if(seq) lastSeq = seq;
+  const incomingTime = Number(next.t) || Date.now();
+  const incomingSource = next.source || 'unknown';
+
+  const isSameSource = incomingSource === lastSource;
+  if (isSameSource && seq && seq <= lastSeq && incomingTime <= lastAppliedTime) return;
+  if (!isSameSource && incomingTime < lastAppliedTime - 15000) return;
+
+  lastSource = incomingSource;
+  if (seq) lastSeq = seq;
+  lastAppliedTime = incomingTime;
 
   state={
     surah:Number(next.surah)||1,

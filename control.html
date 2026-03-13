@@ -81,6 +81,9 @@ const CHANNEL='quran-live-sync';
 const STORAGE_KEY='quran-live-state';
 const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
 const statusEl=document.getElementById('status');
+const CLIENT_KEY='quran-live-client-id';
+const clientId=localStorage.getItem(CLIENT_KEY)||`client-${Math.random().toString(36).slice(2,10)}`;
+localStorage.setItem(CLIENT_KEY, clientId);
 let lastState=null;
 
 function getNum(id,fallback=1){const n=Number(document.getElementById(id).value);return Number.isFinite(n)&&n>0?n:fallback}
@@ -95,6 +98,7 @@ function getState(){
     autoplayMode:document.getElementById('autoplayMode').value,
     reciter:document.getElementById('reciter').value,
     seq:(lastState?.seq||0)+1,
+    source:clientId,
     t:Date.now()
   };
 }
