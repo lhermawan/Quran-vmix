@@ -25,7 +25,6 @@ body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:
 <script>
 const CHANNEL='quran-live-sync';
 const STORAGE_KEY='quran-live-state';
-const SYNC_URL_KEY='quran-live-sync-url';
 const API_FROM_QUERY = getParam('api');
 const API_CANDIDATES = [
   API_FROM_QUERY,
@@ -36,9 +35,6 @@ const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
 const box=document.getElementById('box');
 const bar=document.getElementById('bar');
 const audioEl=document.getElementById('audio');
-const CLIENT_KEY='quran-live-client-id';
-const clientId=localStorage.getItem(CLIENT_KEY)||`overlay-${Math.random().toString(36).slice(2,10)}`;
-localStorage.setItem(CLIENT_KEY, clientId);
 
 let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05'};
 let timer=null;let tick=null;
@@ -51,37 +47,7 @@ let activeApiBase='';
 
 function getParam(name){return new URL(window.location.href).searchParams.get(name)}
 const qsSurah=Number(getParam('s')); const qsAyah=Number(getParam('a'));
-const qsSyncUrl=(getParam('sync')||'').trim();
 if(qsSurah>0) state.surah=qsSurah; if(qsAyah>0) state.ayah=qsAyah;
-
-
-function getSyncUrl(){
-  if(qsSyncUrl) return qsSyncUrl;
-  return (localStorage.getItem(SYNC_URL_KEY)||'').trim();
-}
-
-async function fetchRemoteState(){
-  const syncUrl=getSyncUrl();
-  if(!syncUrl) return null;
-  try{
-    const res=await fetch(syncUrl,{cache:'no-store'});
-    if(!res.ok) return null;
-    const json=await res.json();
-    return json?.state||null;
-  }catch(_){
-    return null;
-  }
-}
-
-
-async function sendRemoteState(nextState){
-  const syncUrl=getSyncUrl();
-  if(!syncUrl) return;
-  try{
-    await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(nextState)});
-  }catch(_){
-  }
-}
 
 async function getSurahData(surah){
   if(surahCache[surah]) return surahCache[surah];
@@ -148,14 +114,7 @@ function syncAutoplay(){
   }
 }
 
-function persistAndBroadcast(){
-  state.seq=(Number(state.seq)||0)+1;
-  state.source=clientId;
-  state.t=Date.now();
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
-  if(bc) bc.postMessage(state);
-  sendRemoteState(state);
-}
+function persistAndBroadcast(){state.t=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));if(bc) bc.postMessage(state)}
 
 async function load(){
   box.classList.remove('show');
@@ -198,9 +157,8 @@ function applyIncoming(next){
   const incomingSource = next.source || 'unknown';
 
   const isSameSource = incomingSource === lastSource;
-  if (seq && seq <= lastSeq) return;
-  if (!seq && incomingTime <= lastAppliedTime) return;
-  if (isSameSource && incomingTime <= lastAppliedTime) return;
+  if (isSameSource && seq && seq <= lastSeq && incomingTime <= lastAppliedTime) return;
+  if (!isSameSource && incomingTime < lastAppliedTime - 15000) return;
 
   lastSource = incomingSource;
   if (seq) lastSeq = seq;
@@ -212,9 +170,7 @@ function applyIncoming(next){
     autoplay:Boolean(next.autoplay),
     interval:Math.max(2,Number(next.interval)||8),
     autoplayMode:next.autoplayMode==='audio'?'audio':'timer',
-    reciter:(next.reciter||'05').padStart(2,'0'),
-    seq:seq,
-    source:incomingSource
+    reciter:(next.reciter||'05').padStart(2,'0')
   };
   load();
 }
@@ -224,14 +180,10 @@ window.addEventListener('storage',(e)=>{if(e.key===STORAGE_KEY&&e.newValue)apply
 
 function startPollingFallback(){
   if(poller) clearInterval(poller);
-  poller = setInterval(async ()=>{
+  poller = setInterval(()=>{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      try { applyIncoming(JSON.parse(raw)); } catch {}
-    }
-
-    const remote = await fetchRemoteState();
-    if(remote) applyIncoming(remote);
+    if(!raw) return;
+    try { applyIncoming(JSON.parse(raw)); } catch {}
   }, 700);
 }
 

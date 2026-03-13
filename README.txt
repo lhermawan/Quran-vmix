@@ -32,6 +32,7 @@ Operator controls:
 NOTES
 
 - overlay dan control sinkron realtime via localStorage + BroadcastChannel.
+- Control otomatis kirim state ke endpoint hidden: http://157.10.157.25:8787/state
 - Untuk sinkron realtime paling stabil, buka control dan overlay dari host/domain yang sama (contoh sama-sama di mesin vMix: localhost/quran).
 - API source utama: https://equran.id/api/v2/surat/{nomor}
 - Bisa force verse dari URL:
@@ -46,20 +47,3 @@ Recommended layout:
 Camera (left)
 Mushaf (right)
 Overlay ayat (bottom)
-
-
-REMOTE SYNC MODE (RECOMMENDED FOR VMIX BROWSER INPUT)
-
-Jika control dan overlay tidak sinkron (karena engine browser berbeda), gunakan sync server:
-
-1) Jalankan sync server (butuh Node.js):
-   node sync-server.js
-
-2) Di control.html isi field "Sync Server URL":
-   http://IP_SERVER:8787/state
-
-3) Di overlay vMix gunakan URL:
-   overlay.html?sync=http://IP_SERVER:8787/state
-
-Dengan mode ini, control akan POST state ke server dan overlay polling GET /state.
-
