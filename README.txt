@@ -35,6 +35,11 @@ NOTES
 - API source utama: https://equran.id/api/v2/surat/{nomor}
 - Bisa force verse dari URL:
   overlay.html?s=2&a=5
+- Jika di Browser vMix muncul "Periksa koneksi internet":
+  1) cek mesin vMix bisa akses internet/DNS
+  2) coba endpoint override:
+     overlay.html?api=http://equran.id/api/v2/surat&s=1&a=1
+  3) pastikan firewall/proxy mengizinkan domain equran.id
 
 Recommended layout:
 Camera (left)

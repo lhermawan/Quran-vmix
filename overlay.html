@@ -25,7 +25,12 @@ body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:
 <script>
 const CHANNEL='quran-live-sync';
 const STORAGE_KEY='quran-live-state';
-const EQURAN_API='https://equran.id/api/v2/surat';
+const API_FROM_QUERY = getParam('api');
+const API_CANDIDATES = [
+  API_FROM_QUERY,
+  'https://equran.id/api/v2/surat',
+  'http://equran.id/api/v2/surat'
+].filter(Boolean);
 const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
 const box=document.getElementById('box');
 const bar=document.getElementById('bar');
@@ -36,6 +41,7 @@ let timer=null;let tick=null;
 const surahCache={};
 let lastSeq=0;
 let poller=null;
+let activeApiBase='';
 
 function getParam(name){return new URL(window.location.href).searchParams.get(name)}
 const qsSurah=Number(getParam('s')); const qsAyah=Number(getParam('a'));
@@ -43,11 +49,30 @@ if(qsSurah>0) state.surah=qsSurah; if(qsAyah>0) state.ayah=qsAyah;
 
 async function getSurahData(surah){
   if(surahCache[surah]) return surahCache[surah];
-  const res=await fetch(`${EQURAN_API}/${surah}`);
-  const json=await res.json();
-  if(json.code!==200||!json.data) throw new Error('API equran gagal');
-  surahCache[surah]=json.data;
-  return json.data;
+  let lastErr=null;
+
+  for (const apiBase of API_CANDIDATES) {
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(()=>ctrl.abort(), 8000);
+      const res=await fetch(`${apiBase}/${surah}`, {signal: ctrl.signal});
+      clearTimeout(timeout);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json=await res.json();
+      if(json.code!==200||!json.data) throw new Error('Response tidak valid');
+
+      activeApiBase = apiBase;
+      surahCache[surah]=json.data;
+      return json.data;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  const e = new Error('Semua endpoint API gagal');
+  e.cause = lastErr;
+  throw e;
 }
 
 async function nextAyahSafe(){
@@ -114,9 +139,10 @@ async function load(){
     if(audioUrl){audioEl.src=audioUrl;}
 
   }catch(err){
+    const errText = err?.cause?.message || err?.message || 'Unknown error';
     document.getElementById('meta').textContent=`Gagal memuat QS ${state.surah}:${state.ayah}`;
     document.getElementById('arab').textContent='';
-    document.getElementById('trans').textContent='Periksa koneksi internet / API equran.id';
+    document.getElementById('trans').textContent=`Koneksi/API gagal (${errText}). Coba internet server vMix, DNS, atau pakai ?api=http://equran.id/api/v2/surat`;
   }
   requestAnimationFrame(()=>box.classList.add('show'));
   syncAutoplay();
