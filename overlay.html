@@ -36,6 +36,9 @@ const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
 const box=document.getElementById('box');
 const bar=document.getElementById('bar');
 const audioEl=document.getElementById('audio');
+const CLIENT_KEY='quran-live-client-id';
+const clientId=localStorage.getItem(CLIENT_KEY)||`overlay-${Math.random().toString(36).slice(2,10)}`;
+localStorage.setItem(CLIENT_KEY, clientId);
 
 let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05'};
 let timer=null;let tick=null;
@@ -67,6 +70,16 @@ async function fetchRemoteState(){
     return json?.state||null;
   }catch(_){
     return null;
+  }
+}
+
+
+async function sendRemoteState(nextState){
+  const syncUrl=getSyncUrl();
+  if(!syncUrl) return;
+  try{
+    await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(nextState)});
+  }catch(_){
   }
 }
 
@@ -135,7 +148,14 @@ function syncAutoplay(){
   }
 }
 
-function persistAndBroadcast(){state.t=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));if(bc) bc.postMessage(state)}
+function persistAndBroadcast(){
+  state.seq=(Number(state.seq)||0)+1;
+  state.source=clientId;
+  state.t=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  if(bc) bc.postMessage(state);
+  sendRemoteState(state);
+}
 
 async function load(){
   box.classList.remove('show');
@@ -178,8 +198,9 @@ function applyIncoming(next){
   const incomingSource = next.source || 'unknown';
 
   const isSameSource = incomingSource === lastSource;
-  if (isSameSource && seq && seq <= lastSeq && incomingTime <= lastAppliedTime) return;
-  if (!isSameSource && incomingTime < lastAppliedTime - 15000) return;
+  if (seq && seq <= lastSeq) return;
+  if (!seq && incomingTime <= lastAppliedTime) return;
+  if (isSameSource && incomingTime <= lastAppliedTime) return;
 
   lastSource = incomingSource;
   if (seq) lastSeq = seq;
@@ -191,7 +212,9 @@ function applyIncoming(next){
     autoplay:Boolean(next.autoplay),
     interval:Math.max(2,Number(next.interval)||8),
     autoplayMode:next.autoplayMode==='audio'?'audio':'timer',
-    reciter:(next.reciter||'05').padStart(2,'0')
+    reciter:(next.reciter||'05').padStart(2,'0'),
+    seq:seq,
+    source:incomingSource
   };
   load();
 }
