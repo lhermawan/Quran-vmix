@@ -5,13 +5,12 @@
 <title>Quran Overlay</title>
 <style>
 body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:#fff;overflow:hidden}
-.box{position:absolute;bottom:40px;left:50%;transform:translate(-50%,40px);background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.6));padding:22px 34px;border-radius:14px;text-align:center;max-width:84%;min-width:60%;opacity:0;transition:opacity .55s ease,transform .55s ease;box-shadow:0 12px 36px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08)}
+.box{position:absolute;bottom:40px;left:50%;transform:translate(-50%,40px);background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.6));padding:22px 34px;border-radius:14px;text-align:center;max-width:84%;min-width:60%;opacity:0;transition:opacity .45s ease,transform .45s ease;box-shadow:0 12px 36px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08)}
 .box.show{opacity:1;transform:translate(-50%,0)}
 .meta{color:#facc15;font-size:20px;font-weight:700;letter-spacing:.4px}
 .ar{font-size:46px;line-height:1.7;margin-top:6px;font-family:'Amiri','Scheherazade New','Traditional Arabic',serif}
 .tr{font-size:24px;line-height:1.4;margin-top:8px;color:#f1f5f9}
-.progress{height:4px;background:rgba(255,255,255,.15);border-radius:99px;margin-top:14px;overflow:hidden}
-.bar{height:100%;width:0;background:#38bdf8;transition:width .2s linear}
+.progress{height:4px;background:rgba(255,255,255,.15);border-radius:99px;margin-top:14px;overflow:hidden}.bar{height:100%;width:0;background:#38bdf8;transition:width .2s linear}
 </style>
 </head>
 <body>
@@ -21,118 +20,114 @@ body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:
   <div class="tr" id="trans"></div>
   <div class="progress"><div class="bar" id="bar"></div></div>
 </div>
+<audio id="audio" preload="none"></audio>
 
 <script>
-const CHANNEL = 'quran-live-sync';
-const STORAGE_KEY = 'quran-live-state';
-const bc = 'BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
-const box = document.getElementById('box');
-const bar = document.getElementById('bar');
+const CHANNEL='quran-live-sync';
+const STORAGE_KEY='quran-live-state';
+const EQURAN_API='https://equran.id/api/v2/surat';
+const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
+const box=document.getElementById('box');
+const bar=document.getElementById('bar');
+const audioEl=document.getElementById('audio');
 
-let state = {surah:1, ayah:1, autoplay:false, interval:8};
-let timer = null;
-let tick = null;
-const chapterCache = {};
+let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05'};
+let timer=null;let tick=null;
+const surahCache={};
 
-function getParam(name){
-  const url = new URL(window.location.href);
-  return url.searchParams.get(name);
-}
+function getParam(name){return new URL(window.location.href).searchParams.get(name)}
+const qsSurah=Number(getParam('s')); const qsAyah=Number(getParam('a'));
+if(qsSurah>0) state.surah=qsSurah; if(qsAyah>0) state.ayah=qsAyah;
 
-const qsSurah = Number(getParam('s'));
-const qsAyah = Number(getParam('a'));
-if(qsSurah > 0) state.surah = qsSurah;
-if(qsAyah > 0) state.ayah = qsAyah;
-
-async function getChapterVersesCount(surah){
-  if(chapterCache[surah]) return chapterCache[surah];
-  const res = await fetch(`https://api.quran.com/api/v4/chapters/${surah}`);
-  const data = await res.json();
-  chapterCache[surah] = data.chapter?.verses_count || 7;
-  return chapterCache[surah];
+async function getSurahData(surah){
+  if(surahCache[surah]) return surahCache[surah];
+  const res=await fetch(`${EQURAN_API}/${surah}`);
+  const json=await res.json();
+  if(json.code!==200||!json.data) throw new Error('API equran gagal');
+  surahCache[surah]=json.data;
+  return json.data;
 }
 
 async function nextAyahSafe(){
-  const total = await getChapterVersesCount(state.surah);
-  if (state.ayah < total) {
-    state.ayah += 1;
-  } else if (state.surah < 114) {
-    state.surah += 1;
-    state.ayah = 1;
+  const cur=await getSurahData(state.surah);
+  if(state.ayah<cur.jumlahAyat){
+    state.ayah+=1;
+  }else if(cur.suratSelanjutnya?.nomor){
+    state.surah=cur.suratSelanjutnya.nomor;
+    state.ayah=1;
   }
   persistAndBroadcast();
   await load();
 }
 
-function animateProgress(){
-  clearInterval(tick);
-  bar.style.width = '0%';
-  const totalMs = Math.max(2000, state.interval * 1000);
-  const start = Date.now();
-  tick = setInterval(()=>{
-    const p = Math.min(100, ((Date.now()-start)/totalMs)*100);
-    bar.style.width = `${p}%`;
-  }, 100);
+function animateProgress(ms){
+  clearInterval(tick);bar.style.width='0%';
+  const total=Math.max(800,ms);
+  const start=Date.now();
+  tick=setInterval(()=>{bar.style.width=`${Math.min(100,((Date.now()-start)/total)*100)}%`},100);
 }
+
+function clearAuto(){clearInterval(timer);clearInterval(tick);bar.style.width='0%';audioEl.onended=null;}
 
 function syncAutoplay(){
-  clearInterval(timer);
-  clearInterval(tick);
-  bar.style.width = '0%';
+  clearAuto();
   if(!state.autoplay) return;
-  animateProgress();
-  timer = setInterval(async ()=>{
-    await nextAyahSafe();
-    animateProgress();
-  }, Math.max(2000, state.interval * 1000));
+  if(state.autoplayMode==='audio'){
+    // dipicu per ayat setelah audio selesai
+    if(audioEl.src){
+      audioEl.play().catch(()=>{});
+      audioEl.onended=async ()=>{await nextAyahSafe();};
+    }
+  }else{
+    const ms=Math.max(2000,state.interval*1000);
+    animateProgress(ms);
+    timer=setInterval(async ()=>{await nextAyahSafe();animateProgress(ms);},ms);
+  }
 }
 
-function persistAndBroadcast(){
-  state.t = Date.now();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if(bc) bc.postMessage(state);
-}
+function persistAndBroadcast(){state.t=Date.now();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));if(bc) bc.postMessage(state)}
 
 async function load(){
   box.classList.remove('show');
-  const url = `https://api.quran.com/api/v4/verses/by_key/${state.surah}:${state.ayah}?translations=33&fields=text_uthmani`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const verse = data.verse;
-    document.getElementById('arab').innerHTML = verse?.text_uthmani || '';
-    document.getElementById('trans').innerHTML = verse?.translations?.[0]?.text || '';
-    document.getElementById('meta').innerHTML = `QS ${state.surah} : ${state.ayah}${state.autoplay ? ` • Auto ${state.interval}s` : ''}`;
-  } catch {
-    document.getElementById('meta').textContent = `Gagal memuat QS ${state.surah}:${state.ayah}`;
-    document.getElementById('arab').textContent = '';
-    document.getElementById('trans').textContent = 'Periksa koneksi internet / API Quran.';
+  try{
+    const surah=await getSurahData(state.surah);
+    const verse=surah.ayat.find(v=>v.nomorAyat===state.ayah) || surah.ayat[0];
+    if(!verse) throw new Error('Ayat tidak ditemukan');
+
+    document.getElementById('arab').textContent=verse.teksArab||'';
+    document.getElementById('trans').textContent=verse.teksIndonesia||'';
+    document.getElementById('meta').textContent=`QS ${surah.namaLatin} (${state.surah}) : ${verse.nomorAyat}${state.autoplay?` • Auto ${state.autoplayMode==='audio'?'Audio':'Timer'}`:''}`;
+
+    const audioUrl=verse.audio?.[state.reciter] || verse.audio?.['05'] || '';
+    if(audioUrl){audioEl.src=audioUrl;}
+
+  }catch(err){
+    document.getElementById('meta').textContent=`Gagal memuat QS ${state.surah}:${state.ayah}`;
+    document.getElementById('arab').textContent='';
+    document.getElementById('trans').textContent='Periksa koneksi internet / API equran.id';
   }
   requestAnimationFrame(()=>box.classList.add('show'));
+  syncAutoplay();
 }
 
 function applyIncoming(next){
   if(!next) return;
-  state = {
-    surah: Number(next.surah) || 1,
-    ayah: Number(next.ayah) || 1,
-    autoplay: Boolean(next.autoplay),
-    interval: Math.max(2, Number(next.interval) || 8)
+  state={
+    surah:Number(next.surah)||1,
+    ayah:Number(next.ayah)||1,
+    autoplay:Boolean(next.autoplay),
+    interval:Math.max(2,Number(next.interval)||8),
+    autoplayMode:next.autoplayMode==='audio'?'audio':'timer',
+    reciter:(next.reciter||'05').padStart(2,'0')
   };
   load();
-  syncAutoplay();
 }
 
-if (bc) bc.onmessage = (event)=>applyIncoming(event.data);
-window.addEventListener('storage', (e)=>{
-  if(e.key === STORAGE_KEY && e.newValue){
-    applyIncoming(JSON.parse(e.newValue));
-  }
-});
+if(bc) bc.onmessage=(e)=>applyIncoming(e.data);
+window.addEventListener('storage',(e)=>{if(e.key===STORAGE_KEY&&e.newValue)applyIncoming(JSON.parse(e.newValue));});
 
-const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-if(saved) applyIncoming(saved);
-else { persistAndBroadcast(); load(); }
+const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+if(saved) applyIncoming(saved); else {persistAndBroadcast(); load();}
 </script>
 </body>
 </html>

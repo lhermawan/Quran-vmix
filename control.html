@@ -7,18 +7,13 @@
 :root{--bg:#0f172a;--panel:#1e293b;--text:#e2e8f0;--accent:#38bdf8;--ok:#22c55e;--warn:#f59e0b}
 *{box-sizing:border-box}
 body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);padding:24px;margin:0}
-h2{margin:0 0 16px}
-.panel{background:var(--panel);padding:20px;border-radius:14px;max-width:720px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.full{grid-column:1/-1}
+h2{margin:0 0 16px}.panel{background:var(--panel);padding:20px;border-radius:14px;max-width:780px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.full{grid-column:1/-1}
 label{font-size:14px;opacity:.9}
 input,button,select{padding:10px;font-size:15px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:var(--text);width:100%}
 button{cursor:pointer;border:none;background:#334155;font-weight:600}
-button.primary{background:var(--accent);color:#04223a}
-button.ok{background:var(--ok);color:#04240f}
-button.warn{background:var(--warn);color:#3a2300}
-.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.row{display:flex;gap:8px}
+button.primary{background:var(--accent);color:#04223a}.ok{background:var(--ok);color:#04240f}.warn{background:var(--warn);color:#3a2300}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.row{display:flex;gap:8px}
 .badge{font-size:12px;background:#0b1220;padding:6px 10px;border-radius:999px;display:inline-block}
 small{display:block;margin-top:10px;opacity:.8}
 </style>
@@ -28,14 +23,8 @@ small{display:block;margin-top:10px;opacity:.8}
 <div class="panel">
   <div class="badge" id="status">Disconnected</div>
   <div class="grid" style="margin-top:12px">
-    <div>
-      <label>Surah</label>
-      <input id="surah" type="number" min="1" max="114" value="1">
-    </div>
-    <div>
-      <label>Ayah</label>
-      <input id="ayah" type="number" min="1" value="1">
-    </div>
+    <div><label>Surah</label><input id="surah" type="number" min="1" max="114" value="1"></div>
+    <div><label>Ayah</label><input id="ayah" type="number" min="1" value="1"></div>
 
     <div class="full actions">
       <button class="warn" onclick="prevAyah()">⟵ Prev</button>
@@ -46,43 +35,37 @@ small{display:block;margin-top:10px;opacity:.8}
     <div>
       <label>Jump to Juz</label>
       <select id="juz" onchange="jumpJuz()">
-        <option value="">-- pilih juz --</option>
-        <option value="1:1">Juz 1</option>
-        <option value="2:142">Juz 2</option>
-        <option value="2:253">Juz 3</option>
-        <option value="3:92">Juz 4</option>
-        <option value="4:24">Juz 5</option>
-        <option value="4:148">Juz 6</option>
-        <option value="5:82">Juz 7</option>
-        <option value="6:111">Juz 8</option>
-        <option value="7:88">Juz 9</option>
-        <option value="8:41">Juz 10</option>
-        <option value="9:93">Juz 11</option>
-        <option value="11:6">Juz 12</option>
-        <option value="12:53">Juz 13</option>
-        <option value="15:1">Juz 14</option>
-        <option value="17:1">Juz 15</option>
-        <option value="18:75">Juz 16</option>
-        <option value="21:1">Juz 17</option>
-        <option value="23:1">Juz 18</option>
-        <option value="25:21">Juz 19</option>
-        <option value="27:56">Juz 20</option>
-        <option value="29:46">Juz 21</option>
-        <option value="33:31">Juz 22</option>
-        <option value="36:28">Juz 23</option>
-        <option value="39:32">Juz 24</option>
-        <option value="41:47">Juz 25</option>
-        <option value="46:1">Juz 26</option>
-        <option value="51:31">Juz 27</option>
-        <option value="58:1">Juz 28</option>
-        <option value="67:1">Juz 29</option>
-        <option value="78:1">Juz 30</option>
+        <option value="">-- pilih juz --</option><option value="1:1">Juz 1</option><option value="2:142">Juz 2</option><option value="2:253">Juz 3</option>
+        <option value="3:92">Juz 4</option><option value="4:24">Juz 5</option><option value="4:148">Juz 6</option><option value="5:82">Juz 7</option>
+        <option value="6:111">Juz 8</option><option value="7:88">Juz 9</option><option value="8:41">Juz 10</option><option value="9:93">Juz 11</option>
+        <option value="11:6">Juz 12</option><option value="12:53">Juz 13</option><option value="15:1">Juz 14</option><option value="17:1">Juz 15</option>
+        <option value="18:75">Juz 16</option><option value="21:1">Juz 17</option><option value="23:1">Juz 18</option><option value="25:21">Juz 19</option>
+        <option value="27:56">Juz 20</option><option value="29:46">Juz 21</option><option value="33:31">Juz 22</option><option value="36:28">Juz 23</option>
+        <option value="39:32">Juz 24</option><option value="41:47">Juz 25</option><option value="46:1">Juz 26</option><option value="51:31">Juz 27</option>
+        <option value="58:1">Juz 28</option><option value="67:1">Juz 29</option><option value="78:1">Juz 30</option>
+      </select>
+    </div>
+
+    <div><label>Auto Play Timer (detik)</label><input id="interval" type="number" min="2" value="8"></div>
+
+    <div>
+      <label>Mode Auto Play</label>
+      <select id="autoplayMode">
+        <option value="timer">Timer</option>
+        <option value="audio">Audio selesai</option>
       </select>
     </div>
 
     <div>
-      <label>Auto Play Interval (detik)</label>
-      <input id="interval" type="number" min="2" value="8">
+      <label>Qori Audio</label>
+      <select id="reciter">
+        <option value="01">Abdullah Al-Juhany</option>
+        <option value="02">Abdul Muhsin Al-Qasim</option>
+        <option value="03">Abdurrahman as-Sudais</option>
+        <option value="04">Ibrahim Al-Dossari</option>
+        <option value="05" selected>Misyari Rasyid Al-Afasi</option>
+        <option value="06">Yasser Al-Dosari</option>
+      </select>
     </div>
 
     <div class="full row">
@@ -90,89 +73,53 @@ small{display:block;margin-top:10px;opacity:.8}
       <button class="warn" onclick="stopAutoplay()">⏹ Stop</button>
     </div>
   </div>
-  <small>Tips vMix: masukkan <b>overlay.html</b> sebagai Browser Input. Panel ini akan sinkron otomatis via localStorage/BroadcastChannel (tanpa reload tab overlay).</small>
+  <small>Sudah pakai API equran.id dan sinkron realtime (tanpa reload overlay). Tombol panah kiri/kanan untuk ayat, spasi untuk start auto play.</small>
 </div>
 
 <script>
-const CHANNEL = 'quran-live-sync';
-const STORAGE_KEY = 'quran-live-state';
-const bc = 'BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
-const statusEl = document.getElementById('status');
+const CHANNEL='quran-live-sync';
+const STORAGE_KEY='quran-live-state';
+const bc='BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
+const statusEl=document.getElementById('status');
 
-function getNum(id, fallback=1){
-  const n = Number(document.getElementById(id).value);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
+function getNum(id,fallback=1){const n=Number(document.getElementById(id).value);return Number.isFinite(n)&&n>0?n:fallback}
 
 function getState(){
   return {
-    surah: Math.min(114, Math.max(1, getNum('surah', 1))),
-    ayah: Math.max(1, getNum('ayah', 1)),
-    autoplay: false,
-    interval: Math.max(2, getNum('interval', 8)),
-    t: Date.now()
+    surah:Math.min(114,Math.max(1,getNum('surah',1))),
+    ayah:Math.max(1,getNum('ayah',1)),
+    autoplay:false,
+    interval:Math.max(2,getNum('interval',8)),
+    autoplayMode:document.getElementById('autoplayMode').value,
+    reciter:document.getElementById('reciter').value,
+    t:Date.now()
   };
 }
 
-function setStatus(text){
-  statusEl.textContent = text;
-}
+function setStatus(text){statusEl.textContent=text}
 
 function publish(state){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (bc) bc.postMessage(state);
-  setStatus(`Live: QS ${state.surah}:${state.ayah}${state.autoplay ? ` • Auto ${state.interval}s` : ''}`);
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  if(bc) bc.postMessage(state);
+  const extra=state.autoplay?` • Auto ${state.autoplayMode==='audio'?'Audio':'Timer '+state.interval+'s'}`:'';
+  setStatus(`Live: QS ${state.surah}:${state.ayah}${extra}`);
 }
 
-function pushState(){ publish(getState()); }
+function pushState(){publish(getState())}
+function prevAyah(){document.getElementById('ayah').value=Math.max(1,getNum('ayah',1)-1);pushState()}
+function nextAyah(){document.getElementById('ayah').value=getNum('ayah',1)+1;pushState()}
+function jumpJuz(){const v=document.getElementById('juz').value;if(!v)return;const [s,a]=v.split(':').map(Number);document.getElementById('surah').value=s;document.getElementById('ayah').value=a;pushState()}
+function startAutoplay(){const s=getState();s.autoplay=true;publish(s)}
+function stopAutoplay(){const s=getState();s.autoplay=false;publish(s)}
 
-function prevAyah(){
-  const ayah = Math.max(1, getNum('ayah',1)-1);
-  document.getElementById('ayah').value = ayah;
-  pushState();
-}
+window.addEventListener('keydown',(e)=>{if(e.code==='ArrowRight')nextAyah();if(e.code==='ArrowLeft')prevAyah();if(e.code==='Space'){e.preventDefault();startAutoplay();}});
 
-function nextAyah(){
-  document.getElementById('ayah').value = getNum('ayah',1)+1;
-  pushState();
-}
-
-function jumpJuz(){
-  const val = document.getElementById('juz').value;
-  if(!val) return;
-  const [s,a] = val.split(':').map(Number);
-  document.getElementById('surah').value = s;
-  document.getElementById('ayah').value = a;
-  pushState();
-}
-
-function startAutoplay(){
-  const state = getState();
-  state.autoplay = true;
-  publish(state);
-}
-
-function stopAutoplay(){
-  const state = getState();
-  state.autoplay = false;
-  publish(state);
-}
-
-window.addEventListener('keydown', (e)=>{
-  if(e.code === 'ArrowRight') nextAyah();
-  if(e.code === 'ArrowLeft') prevAyah();
-  if(e.code === 'Space'){ e.preventDefault(); startAutoplay(); }
-});
-
-const initial = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+const initial=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
 if(initial){
-  document.getElementById('surah').value = initial.surah || 1;
-  document.getElementById('ayah').value = initial.ayah || 1;
-  document.getElementById('interval').value = initial.interval || 8;
+  surah.value=initial.surah||1;ayah.value=initial.ayah||1;interval.value=initial.interval||8;
+  autoplayMode.value=initial.autoplayMode||'timer';reciter.value=initial.reciter||'05';
   setStatus(`Loaded: QS ${initial.surah}:${initial.ayah}`);
-} else {
-  pushState();
-}
+}else{pushState()}
 </script>
 </body>
 </html>
