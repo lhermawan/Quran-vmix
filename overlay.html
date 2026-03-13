@@ -25,6 +25,7 @@ body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:
 <script>
 const CHANNEL='quran-live-sync';
 const STORAGE_KEY='quran-live-state';
+const REMOTE_STATE_URL = getParam('state') || 'http://157.10.157.25:8787/state';
 const API_FROM_QUERY = getParam('api');
 const API_CANDIDATES = [
   API_FROM_QUERY,
@@ -43,6 +44,7 @@ let lastSeq=0;
 let lastAppliedTime=0;
 let lastSource='';
 let poller=null;
+let remotePoller=null;
 let activeApiBase='';
 
 function getParam(name){return new URL(window.location.href).searchParams.get(name)}
@@ -178,6 +180,26 @@ function applyIncoming(next){
 if(bc) bc.onmessage=(e)=>applyIncoming(e.data);
 window.addEventListener('storage',(e)=>{if(e.key===STORAGE_KEY&&e.newValue)applyIncoming(JSON.parse(e.newValue));});
 
+
+async function pullRemoteState(){
+  if(!REMOTE_STATE_URL) return;
+  try{
+    const res = await fetch(REMOTE_STATE_URL,{cache:'no-store'});
+    if(!res.ok) return;
+    const data = await res.json();
+    const next = data?.state || data;
+    if(next && typeof next === 'object' && next.surah && next.ayah){
+      applyIncoming(next);
+    }
+  }catch{}
+}
+
+function startRemotePolling(){
+  if(remotePoller) clearInterval(remotePoller);
+  pullRemoteState();
+  remotePoller = setInterval(pullRemoteState, 1000);
+}
+
 function startPollingFallback(){
   if(poller) clearInterval(poller);
   poller = setInterval(()=>{
@@ -190,6 +212,7 @@ function startPollingFallback(){
 const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
 if(saved) applyIncoming(saved); else {persistAndBroadcast(); load();}
 startPollingFallback();
+startRemotePolling();
 </script>
 </body>
 </html>

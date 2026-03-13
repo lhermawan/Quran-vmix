@@ -33,6 +33,7 @@ NOTES
 
 - overlay dan control sinkron realtime via localStorage + BroadcastChannel.
 - Control otomatis kirim state ke endpoint hidden: http://157.10.157.25:8787/state
+- Overlay juga auto tarik state dari endpoint yang sama untuk sinkron lintas mesin/browser vMix.
 - Untuk sinkron realtime paling stabil, buka control dan overlay dari host/domain yang sama (contoh sama-sama di mesin vMix: localhost/quran).
 - API source utama: https://equran.id/api/v2/surat/{nomor}
 - Bisa force verse dari URL:
