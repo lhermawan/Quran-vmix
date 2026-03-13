@@ -1,38 +1,41 @@
-
 QURAN LIVE STREAM SYSTEM (vMix Ready)
 
 FILES
 
 overlay.html
-Auto ayat overlay using Quran API.
+Live subtitle ayat (Arabic + translation), smooth animation, and optional auto-play mode.
 
 control.html
-Operator control panel.
+Operator panel to control surah/ayah, jump by juz, and start/stop auto-play.
 
 mushaf.html
-Display mushaf page.
+Display mushaf page from CDN.
 
 SETUP IN VMIX
 
-1 Add Browser Input
+1) Add Browser Input:
    load overlay.html
 
-2 Add Browser Input
+2) Add Browser Input:
    load mushaf.html?p=1
 
-3 Open control.html in browser
+3) Open control.html in browser (operator laptop/PC)
 
 Operator controls:
 - Change surah / ayah
-- Next / prev ayah
+- Next / prev ayah (also Arrow Left/Right)
 - Jump directly to Juz
+- Auto play ayat with interval per second
 
-Use overlay.html?s=2&a=5
-to show specific verse.
+NOTES
+
+- overlay and control are synced without page reload using localStorage + BroadcastChannel.
+- API source: api.quran.com
+- You can still force opening specific verse with query:
+  overlay.html?s=2&a=5
 
 Recommended layout:
 
 Camera (left)
 Mushaf (right)
 Overlay ayat bottom
-
