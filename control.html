@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Operator Panel</title>
+<style>
+body{font-family:sans-serif;background:#0f172a;color:white;padding:30px}
+input,button,select{padding:10px;font-size:16px;margin:5px}
+button{cursor:pointer}
+.panel{background:#1e293b;padding:20px;border-radius:10px;width:420px}
+</style>
+</head>
+
+<body>
+
+<h2>Qur'an Live Control</h2>
+
+<div class="panel">
+
+<label>Surah</label><br>
+<input id="surah" type="number" value="1"><br>
+
+<label>Ayah</label><br>
+<input id="ayah" type="number" value="1"><br>
+
+<button onclick="update()">Update Ayat</button>
+<button onclick="next()">Next Ayat</button>
+<button onclick="prev()">Prev Ayat</button>
+
+<hr>
+
+<label>Jump to Juz</label><br>
+
+<select id="juz">
+<option value="1:1">Juz 1</option>
+<option value="2:142">Juz 2</option>
+<option value="2:253">Juz 3</option>
+<option value="3:92">Juz 4</option>
+<option value="4:24">Juz 5</option>
+<option value="4:148">Juz 6</option>
+<option value="5:82">Juz 7</option>
+<option value="6:111">Juz 8</option>
+<option value="7:88">Juz 9</option>
+<option value="8:41">Juz 10</option>
+<option value="9:93">Juz 11</option>
+<option value="11:6">Juz 12</option>
+<option value="12:53">Juz 13</option>
+<option value="15:1">Juz 14</option>
+<option value="17:1">Juz 15</option>
+<option value="18:75">Juz 16</option>
+<option value="21:1">Juz 17</option>
+<option value="23:1">Juz 18</option>
+<option value="25:21">Juz 19</option>
+<option value="27:56">Juz 20</option>
+<option value="29:46">Juz 21</option>
+<option value="33:31">Juz 22</option>
+<option value="36:28">Juz 23</option>
+<option value="39:32">Juz 24</option>
+<option value="41:47">Juz 25</option>
+<option value="46:1">Juz 26</option>
+<option value="51:31">Juz 27</option>
+<option value="58:1">Juz 28</option>
+<option value="67:1">Juz 29</option>
+<option value="78:1">Juz 30</option>
+</select>
+
+<button onclick="jumpJuz()">Go</button>
+
+</div>
+
+<script>
+
+let overlayURL="overlay.html"
+
+function openOverlay(){
+window.open(overlayURL,"overlay")
+}
+
+function update(){
+
+let s=document.getElementById("surah").value
+let a=document.getElementById("ayah").value
+
+overlayURL=`overlay.html?s=${s}&a=${a}`
+
+window.open(overlayURL,"overlay")
+
+}
+
+function next(){
+
+let s=document.getElementById("surah").value
+let a=parseInt(document.getElementById("ayah").value)+1
+
+document.getElementById("ayah").value=a
+
+overlayURL=`overlay.html?s=${s}&a=${a}`
+
+window.open(overlayURL,"overlay")
+
+}
+
+function prev(){
+
+let s=document.getElementById("surah").value
+let a=parseInt(document.getElementById("ayah").value)-1
+
+if(a<1) a=1
+
+document.getElementById("ayah").value=a
+
+overlayURL=`overlay.html?s=${s}&a=${a}`
+
+window.open(overlayURL,"overlay")
+
+}
+
+function jumpJuz(){
+
+let val=document.getElementById("juz").value
+
+let parts=val.split(":")
+
+document.getElementById("surah").value=parts[0]
+document.getElementById("ayah").value=parts[1]
+
+update()
+
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Quran Overlay</title>
+
+<style>
+
+body{
+margin:0;
+background:#00FF00; /* chroma key hijau */
+font-family:sans-serif;
+color:white;
+overflow:hidden;
+}
+
+.box{
+position:absolute;
+bottom:40px;
+left:50%;
+transform:translate(-50%,40px);
+background:rgba(0,0,0,0.70);
+padding:25px 40px;
+border-radius:14px;
+text-align:center;
+max-width:75%;
+
+opacity:0;
+
+transition:
+opacity 0.8s cubic-bezier(.22,.61,.36,1),
+transform 0.8s cubic-bezier(.22,.61,.36,1);
+}
+
+.box.show{
+opacity:1;
+transform:translate(-50%,0);
+}
+
+.meta{
+color:gold;
+font-size:18px;
+}
+
+.ar{
+font-size:44px;
+margin-top:10px;
+line-height:1.7;
+}
+
+.tr{
+font-size:20px;
+margin-top:10px;
+color:#ddd;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="box" id="box">
+<div class="meta" id="meta"></div>
+<div class="ar" id="arab"></div>
+<div class="tr" id="trans"></div>
+</div>
+
+<script>
+
+function getParam(name){
+let url = new URL(window.location.href)
+return url.searchParams.get(name)
+}
+
+let surah = getParam("s") || 1
+let ayah = getParam("a") || 1
+
+async function load(){
+
+let box = document.getElementById("box")
+
+box.classList.remove("show")
+
+setTimeout(async ()=>{
+
+let url =
+`https://api.quran.com/api/v4/verses/by_key/${surah}:${ayah}?translations=33&fields=text_uthmani`
+
+let res = await fetch(url)
+let data = await res.json()
+
+let verse = data.verse
+
+// arab
+document.getElementById("arab").innerHTML =
+verse.text_uthmani || ""
+
+// terjemahan
+document.getElementById("trans").innerHTML =
+verse.translations?.[0]?.text || ""
+
+// meta
+let key = verse.verse_key.split(":")
+
+document.getElementById("meta").innerHTML =
+`QS ${key[0]} : ${key[1]}`
+
+// animasi masuk
+requestAnimationFrame(()=>{
+box.classList.add("show")
+})
+
+},500)
+
+}
+
+load()
+
+</script>
+
+</body>
+</html>

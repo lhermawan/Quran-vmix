@@ -1,0 +1,37 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mushaf</title>
+<style>
+body{margin:0;background:black;display:flex;align-items:center;justify-content:center;height:100vh}
+img{max-height:100vh;max-width:100vw}
+</style>
+</head>
+
+<body>
+
+<img id="page" src="">
+
+<script>
+
+function getParam(name){
+let url = new URL(window.location.href)
+return url.searchParams.get(name)
+}
+
+let page = getParam("p") || 1
+
+let padded = String(page).padStart(3,'0')
+
+// CDN mushaf
+let img =
+`https://cdn.islamic.network/quran/images/page/${padded}.png`
+
+document.getElementById("page").src = img
+
+</script>
+
+</body>
+</html>
