@@ -25,6 +25,7 @@ body{margin:0;background:#00FF00;font-family:'Segoe UI',Tahoma,sans-serif;color:
 <script>
 const CHANNEL='quran-live-sync';
 const STORAGE_KEY='quran-live-state';
+const SYNC_URL_KEY='quran-live-sync-url';
 const API_FROM_QUERY = getParam('api');
 const API_CANDIDATES = [
   API_FROM_QUERY,
@@ -47,7 +48,27 @@ let activeApiBase='';
 
 function getParam(name){return new URL(window.location.href).searchParams.get(name)}
 const qsSurah=Number(getParam('s')); const qsAyah=Number(getParam('a'));
+const qsSyncUrl=(getParam('sync')||'').trim();
 if(qsSurah>0) state.surah=qsSurah; if(qsAyah>0) state.ayah=qsAyah;
+
+
+function getSyncUrl(){
+  if(qsSyncUrl) return qsSyncUrl;
+  return (localStorage.getItem(SYNC_URL_KEY)||'').trim();
+}
+
+async function fetchRemoteState(){
+  const syncUrl=getSyncUrl();
+  if(!syncUrl) return null;
+  try{
+    const res=await fetch(syncUrl,{cache:'no-store'});
+    if(!res.ok) return null;
+    const json=await res.json();
+    return json?.state||null;
+  }catch(_){
+    return null;
+  }
+}
 
 async function getSurahData(surah){
   if(surahCache[surah]) return surahCache[surah];
@@ -180,10 +201,14 @@ window.addEventListener('storage',(e)=>{if(e.key===STORAGE_KEY&&e.newValue)apply
 
 function startPollingFallback(){
   if(poller) clearInterval(poller);
-  poller = setInterval(()=>{
+  poller = setInterval(async ()=>{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return;
-    try { applyIncoming(JSON.parse(raw)); } catch {}
+    if(raw){
+      try { applyIncoming(JSON.parse(raw)); } catch {}
+    }
+
+    const remote = await fetchRemoteState();
+    if(remote) applyIncoming(remote);
   }, 700);
 }
 

@@ -46,3 +46,20 @@ Recommended layout:
 Camera (left)
 Mushaf (right)
 Overlay ayat (bottom)
+
+
+REMOTE SYNC MODE (RECOMMENDED FOR VMIX BROWSER INPUT)
+
+Jika control dan overlay tidak sinkron (karena engine browser berbeda), gunakan sync server:
+
+1) Jalankan sync server (butuh Node.js):
+   node sync-server.js
+
+2) Di control.html isi field "Sync Server URL":
+   http://IP_SERVER:8787/state
+
+3) Di overlay vMix gunakan URL:
+   overlay.html?sync=http://IP_SERVER:8787/state
+
+Dengan mode ini, control akan POST state ke server dan overlay polling GET /state.
+
