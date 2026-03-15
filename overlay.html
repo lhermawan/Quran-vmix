@@ -37,7 +37,7 @@ const box=document.getElementById('box');
 const bar=document.getElementById('bar');
 const audioEl=document.getElementById('audio');
 
-let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05'};
+let state={surah:1,ayah:1,autoplay:false,interval:8,autoplayMode:'timer',reciter:'05',voiceThreshold:14,silenceMs:1200};
 let timer=null;let tick=null;
 const surahCache={};
 let lastSeq=0;
@@ -109,6 +109,9 @@ function syncAutoplay(){
       audioEl.play().catch(()=>{});
       audioEl.onended=async ()=>{await nextAyahSafe();};
     }
+  }else if(state.autoplayMode==='voice'){
+    // Mode voice diproses dari panel operator, overlay hanya tampilkan progress off
+    bar.style.width='0%';
   }else{
     const ms=Math.max(2000,state.interval*1000);
     animateProgress(ms);
@@ -137,7 +140,8 @@ async function load(){
 
     document.getElementById('arab').textContent=verse.teksArab||'';
     document.getElementById('trans').textContent=verse.teksIndonesia||'';
-    document.getElementById('meta').textContent=`QS ${surah.namaLatin} (${state.surah}) : ${verse.nomorAyat}${state.autoplay?` • Auto ${state.autoplayMode==='audio'?'Audio':'Timer'}`:''}`;
+    const modeText=state.autoplayMode==='audio'?'Audio':(state.autoplayMode==='voice'?'Voice':'Timer');
+    document.getElementById('meta').textContent=`QS ${surah.namaLatin} (${state.surah}) : ${verse.nomorAyat}${state.autoplay?` • Auto ${modeText}`:''}`;
 
     const audioUrl=verse.audio?.[state.reciter] || verse.audio?.['05'] || '';
     if(audioUrl){audioEl.src=audioUrl;}
@@ -171,8 +175,10 @@ function applyIncoming(next){
     ayah:Number(next.ayah)||1,
     autoplay:Boolean(next.autoplay),
     interval:Math.max(2,Number(next.interval)||8),
-    autoplayMode:next.autoplayMode==='audio'?'audio':'timer',
-    reciter:(next.reciter||'05').padStart(2,'0')
+    autoplayMode:next.autoplayMode==='audio'?'audio':(next.autoplayMode==='voice'?'voice':'timer'),
+    reciter:(next.reciter||'05').padStart(2,'0'),
+    voiceThreshold:Math.max(2,Math.min(80,Number(next.voiceThreshold)||14)),
+    silenceMs:Math.max(400,Math.min(8000,Number(next.silenceMs)||1200))
   };
   load();
 }
