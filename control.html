@@ -94,7 +94,7 @@ small{display:block;margin-top:10px;opacity:.8}
       <button class="warn" onclick="stopAutoplay()">⏹ Stop</button>
     </div>
   </div>
-  <small>Sudah pakai API equran.id dan sinkron realtime (tanpa reload overlay). Tombol panah kiri/kanan untuk ayat, spasi untuk start auto play.</small>
+  <small>Mode Voice butuh izin mic + halaman HTTPS/localhost. Jika pakai IP HTTP, Chrome akan blokir mic. Tombol panah kiri/kanan untuk ayat, spasi untuk start auto play.</small>
 </div>
 
 <script>
@@ -143,6 +143,22 @@ function stepAyah(delta){
 }
 
 function getNum(id,fallback=1){const n=Number(document.getElementById(id).value);return Number.isFinite(n)&&n>0?n:fallback}
+
+function getMicCapabilityIssue(){
+  const host=window.location.hostname||'';
+  const isLocal=host==='localhost'||host==='127.0.0.1'||host==='::1';
+  const secureOk=window.isSecureContext||isLocal;
+  if(!secureOk){
+    return 'Mic hanya aktif di HTTPS / localhost (sekarang: HTTP non-local).';
+  }
+  if(!navigator.mediaDevices){
+    return 'navigator.mediaDevices tidak tersedia di browser ini.';
+  }
+  if(!navigator.mediaDevices.getUserMedia){
+    return 'getUserMedia tidak tersedia (izin/perangkat/policy browser).';
+  }
+  return '';
+}
 
 function getState(){
   const keepAutoplay = lastState ? Boolean(lastState.autoplay) : false;
@@ -210,8 +226,9 @@ function publish(state){
 
 async function setupVoiceDetection(){
   if(voiceCtx && voiceAnalyser && voiceStream) return true;
-  if(!navigator.mediaDevices?.getUserMedia){
-    setStatus('Browser tidak support mic');
+  const issue=getMicCapabilityIssue();
+  if(issue){
+    setStatus(`Mic tidak tersedia: ${issue}`);
     return false;
   }
   try{
@@ -223,7 +240,12 @@ async function setupVoiceDetection(){
     src.connect(voiceAnalyser);
     return true;
   }catch(err){
-    setStatus('Izin mic ditolak / tidak tersedia');
+    const msg=err?.name==='NotAllowedError'
+      ? 'Izin mic ditolak. Klik icon lock/browser setting lalu Allow microphone.'
+      : (err?.name==='NotFoundError'
+        ? 'Perangkat mic tidak ditemukan di sistem.'
+        : `Gagal akses mic (${err?.name||'unknown'}).`);
+    setStatus(msg);
     return false;
   }
 }
@@ -290,6 +312,11 @@ function startAutoplay(){const s=getState();s.autoplay=true;publish(s);syncVoice
 function stopAutoplay(){const s=getState();s.autoplay=false;publish(s);syncVoiceMode(s)}
 
 window.addEventListener('keydown',(e)=>{if(e.code==='ArrowRight')nextAyah();if(e.code==='ArrowLeft')prevAyah();if(e.code==='Space'){e.preventDefault();startAutoplay();}});
+
+const micIssueAtStart=getMicCapabilityIssue();
+if(micIssueAtStart){
+  setStatus(`Info mic: ${micIssueAtStart}`);
+}
 
 const initial=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
 if(initial){
