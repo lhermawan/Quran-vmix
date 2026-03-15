@@ -17,6 +17,8 @@ button.primary{background:var(--accent);color:#04223a}.ok{background:var(--ok);c
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.row{display:flex;gap:8px}
 .badge{font-size:12px;background:#0b1220;padding:6px 10px;border-radius:999px;display:inline-block}
 small{display:block;margin-top:10px;opacity:.8}
+.meter{height:8px;background:#0b1220;border-radius:99px;overflow:hidden;border:1px solid #334155}
+.meter > div{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);transition:width .08s linear}
 </style>
 </head>
 <body>
@@ -55,6 +57,7 @@ small{display:block;margin-top:10px;opacity:.8}
       <select id="autoplayMode">
         <option value="timer">Timer</option>
         <option value="audio">Audio selesai</option>
+        <option value="voice">Deteksi suara mic</option>
       </select>
     </div>
 
@@ -68,6 +71,22 @@ small{display:block;margin-top:10px;opacity:.8}
         <option value="05" selected>Misyari Rasyid Al-Afasi</option>
         <option value="06">Yasser Al-Dosari</option>
       </select>
+    </div>
+
+
+    <div>
+      <label>Voice Threshold</label>
+      <input id="voiceThreshold" type="number" min="2" max="80" value="14">
+    </div>
+
+    <div>
+      <label>Silence Hold (ms)</label>
+      <input id="silenceMs" type="number" min="400" max="8000" step="100" value="1200">
+    </div>
+
+    <div class="full">
+      <label>Deteksi Suara (Mode Voice)</label>
+      <div class="meter" title="Level mic realtime"><div id="voiceLevel"></div></div>
     </div>
 
     <div class="full row">
@@ -87,6 +106,7 @@ const CLIENT_KEY='quran-live-client-id';
 const clientId=localStorage.getItem(CLIENT_KEY)||`client-${Math.random().toString(36).slice(2,10)}`;
 localStorage.setItem(CLIENT_KEY, clientId);
 let lastState=null;
+let voiceCtx=null;let voiceAnalyser=null;let voiceStream=null;let voiceRAF=0;let lastVoiceAt=0;let voiceCooldown=false;
 const SURAH_AYAH_COUNT=[
   7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6
 ];
@@ -133,6 +153,8 @@ function getState(){
     interval:Math.max(2,getNum('interval',8)),
     autoplayMode:document.getElementById('autoplayMode').value,
     reciter:document.getElementById('reciter').value,
+    voiceThreshold:Math.max(2,Math.min(80,getNum('voiceThreshold',14))),
+    silenceMs:Math.max(400,Math.min(8000,getNum('silenceMs',1200))),
     seq:(lastState?.seq||0)+1,
     source:clientId,
     t:Date.now()
@@ -180,16 +202,92 @@ function publish(state){
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   if(bc) bc.postMessage(state);
   syncRemoteState(state);
-  const extra=state.autoplay?` • Auto ${state.autoplayMode==='audio'?'Audio':'Timer '+state.interval+'s'}`:'';
+  const modeText = state.autoplayMode==='audio'?'Audio':(state.autoplayMode==='voice'?'Voice':'Timer '+state.interval+'s');
+  const extra=state.autoplay?` • Auto ${modeText}`:'';
   setStatus(`Live: QS ${state.surah}:${state.ayah}${extra}`);
 }
 
-function pushState(){publish(getState())}
+
+async function setupVoiceDetection(){
+  if(voiceCtx && voiceAnalyser && voiceStream) return true;
+  if(!navigator.mediaDevices?.getUserMedia){
+    setStatus('Browser tidak support mic');
+    return false;
+  }
+  try{
+    voiceStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    voiceCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=voiceCtx.createMediaStreamSource(voiceStream);
+    voiceAnalyser=voiceCtx.createAnalyser();
+    voiceAnalyser.fftSize=1024;
+    src.connect(voiceAnalyser);
+    return true;
+  }catch(err){
+    setStatus('Izin mic ditolak / tidak tersedia');
+    return false;
+  }
+}
+
+function stopVoiceDetection(){
+  if(voiceRAF){cancelAnimationFrame(voiceRAF);voiceRAF=0;}
+  const level=document.getElementById('voiceLevel');
+  if(level) level.style.width='0%';
+  if(voiceStream){voiceStream.getTracks().forEach(t=>t.stop());voiceStream=null;}
+  if(voiceCtx){voiceCtx.close();voiceCtx=null;}
+  voiceAnalyser=null;
+  lastVoiceAt=0;
+  voiceCooldown=false;
+}
+
+async function runVoiceDetection(){
+  const ok=await setupVoiceDetection();
+  if(!ok || !voiceAnalyser) return;
+  const levelEl=document.getElementById('voiceLevel');
+  const data=new Uint8Array(voiceAnalyser.fftSize);
+
+  const loop=()=>{
+    if(!lastState?.autoplay || lastState?.autoplayMode!=='voice' || !voiceAnalyser) return;
+    voiceAnalyser.getByteTimeDomainData(data);
+    let peak=0;
+    for(let i=0;i<data.length;i++){
+      const amp=Math.abs(data[i]-128);
+      if(amp>peak) peak=amp;
+    }
+    const normalized=Math.min(100,Math.round((peak/128)*100));
+    if(levelEl) levelEl.style.width=`${normalized}%`;
+
+    const threshold=Math.max(2,Math.min(80,getNum('voiceThreshold',14)));
+    const silenceMs=Math.max(400,Math.min(8000,getNum('silenceMs',1200)));
+
+    if(normalized>=threshold){
+      lastVoiceAt=Date.now();
+      voiceCooldown=false;
+    }else if(lastVoiceAt && !voiceCooldown && (Date.now()-lastVoiceAt)>=silenceMs){
+      voiceCooldown=true;
+      nextAyah();
+      setTimeout(()=>{voiceCooldown=false;},350);
+      lastVoiceAt=0;
+    }
+    voiceRAF=requestAnimationFrame(loop);
+  };
+
+  if(!voiceRAF) voiceRAF=requestAnimationFrame(loop);
+}
+
+async function syncVoiceMode(nextState){
+  if(nextState?.autoplay && nextState?.autoplayMode==='voice'){
+    await runVoiceDetection();
+  }else{
+    stopVoiceDetection();
+  }
+}
+
+function pushState(){const s=getState();publish(s);syncVoiceMode(s)}
 function prevAyah(){stepAyah(-1)}
 function nextAyah(){stepAyah(1)}
 function jumpJuz(){const v=document.getElementById('juz').value;if(!v)return;const [s,a]=v.split(':').map(Number);document.getElementById('surah').value=s;document.getElementById('ayah').value=a;pushState()}
-function startAutoplay(){const s=getState();s.autoplay=true;publish(s)}
-function stopAutoplay(){const s=getState();s.autoplay=false;publish(s)}
+function startAutoplay(){const s=getState();s.autoplay=true;publish(s);syncVoiceMode(s)}
+function stopAutoplay(){const s=getState();s.autoplay=false;publish(s);syncVoiceMode(s)}
 
 window.addEventListener('keydown',(e)=>{if(e.code==='ArrowRight')nextAyah();if(e.code==='ArrowLeft')prevAyah();if(e.code==='Space'){e.preventDefault();startAutoplay();}});
 
@@ -198,8 +296,12 @@ if(initial){
   lastState = initial;
   surah.value=initial.surah||1;ayah.value=initial.ayah||1;interval.value=initial.interval||8;
   autoplayMode.value=initial.autoplayMode||'timer';reciter.value=initial.reciter||'05';
+  voiceThreshold.value=initial.voiceThreshold||14;silenceMs.value=initial.silenceMs||1200;
   setStatus(`Loaded: QS ${initial.surah}:${initial.ayah}`);
+  syncVoiceMode(initial);
 }else{pushState()}
+
+window.addEventListener('beforeunload',()=>stopVoiceDetection());
 </script>
 </body>
 </html>
